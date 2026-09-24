@@ -1,0 +1,28 @@
+pluginManagement {
+    repositories {
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "Packet capture"
+include ':app', ':core', ':capture', ':data'
+
+// The local test client is optional and is not part of the source distribution.
+if (file('test-client/build.gradle').isFile()) {
+    include ':test-client'
+}

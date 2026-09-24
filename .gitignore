@@ -1,0 +1,24 @@
+# IDE and machine-specific configuration
+/.idea/
+*.iml
+local.properties
+.DS_Store
+Thumbs.db
+
+# Gradle, Kotlin, and native build output
+.gradle/
+.kotlin/
+**/build/
+.externalNativeBuild/
+.cxx/
+
+# Local captures and generated artifacts
+/captures/
+/dist/
+/artifacts/
+/design/
+
+# Local development documentation, fixtures, and test client
+/docs/
+/tools/
+/test-client/

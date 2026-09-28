@@ -1,4 +1,4 @@
-package com.packetcapture.ui
+package com.packetcapture.body
 
 import com.packetcapture.core.DEFAULT_BODY_LIMIT
 import java.nio.ByteBuffer

@@ -1,4 +1,4 @@
-package com.packetcapture.ui
+package com.packetcapture.body
 
 internal data class BodyTextChunk(val start: Int, val end: Int)
 

@@ -10,9 +10,9 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.unit.dp
 import com.packetcapture.core.*
-import com.packetcapture.ui.DetailScreen
-import com.packetcapture.ui.DetailState
-import com.packetcapture.ui.ExportRequest
+import com.packetcapture.ui.detail.DetailScreen
+import com.packetcapture.ui.detail.DetailState
+import com.packetcapture.export.ExportRequest
 import com.packetcapture.ui.theme.PacketCaptureTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

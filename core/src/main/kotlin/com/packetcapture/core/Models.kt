@@ -110,4 +110,8 @@ data class InstalledApp(val packageName: String, val label: String)
 data class BodyPreview(val text: String, val binary: Boolean, val limited: Boolean, val note: String? = null,
     val rawText: String? = null)
 data class ExportOptions(val redactCredentials: Boolean = true)
-data class CurlExport(val command: String, val body: ByteArray? = null, val bodyFileName: String? = null)
+data class CurlExport(
+    val command: String,
+    val requestText: String = "",
+    val responseText: String = "",
+)

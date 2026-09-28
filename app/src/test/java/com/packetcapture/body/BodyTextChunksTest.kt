@@ -1,4 +1,4 @@
-package com.packetcapture.ui
+package com.packetcapture.body
 
 import org.junit.Assert.*
 import org.junit.Test

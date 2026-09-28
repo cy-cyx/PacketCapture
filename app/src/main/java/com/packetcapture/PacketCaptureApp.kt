@@ -6,6 +6,7 @@ import com.packetcapture.capture.CaptureRuntime
 import com.packetcapture.capture.crypto.LocalCertificateAuthority
 import com.packetcapture.core.*
 import com.packetcapture.data.*
+import com.packetcapture.export.DocumentExporter
 import kotlinx.coroutines.*
 
 /** 唯一的依赖装配入口。页面只拿 core 接口，具体实现之间通过构造函数注入。 */
@@ -16,6 +17,7 @@ class AppContainer(application: Application) {
     private val authority = LocalCertificateAuthority(application)
     val certificates: CertificateManager = authority
     val exports: ExportService = TrafficExporter(bodies)
+    val documents = DocumentExporter(repository, bodies, certificates, exports)
     val runtime = CaptureRuntime(application, repository, bodies, authority)
     val controller: CaptureController = runtime
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

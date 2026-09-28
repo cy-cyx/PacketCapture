@@ -21,7 +21,7 @@ Packet Capture uses Android `VpnService` to capture traffic from selected apps w
 | Base64 and images | View binary bodies as Base64, attempt image detection and preview, or decode standard and URL-safe Base64 into UTF-8 text. |
 | Search and filters | Search domains, paths, and other URL text; filter by method, HTTP status code, package name, or errors. |
 | Session history | Store sessions locally, then search, inspect, delete, or export them. Bodies load when opening request details. |
-| Exports | Export sessions as HAR 1.2, individual requests as cURL ZIP bundles, or the current body view as UTF-8 text. |
+| Exports | Export sessions as HAR 1.2, individual request / response ZIP bundles with self-contained cURL text, or the current body view as UTF-8 text. |
 | Proxy forwarding | Forward captured TCP, UDP, and DNS traffic through a local SOCKS5 proxy. |
 | Appearance and background capture | Choose light, dark, or system theme. A foreground service keeps capture running after leaving the screen, with a stop action in the notification. |
 
@@ -85,7 +85,7 @@ The proxy must support `UDP ASSOCIATE`. Availability is checked before capture s
 - **Body reading**: Scroll through all saved content. The JSON reading view decodes escape sequences; switch to Raw (`原文`) when you need the original JSON. Copy and body export follow the current text view. Use text export for larger bodies.
 - **Image previews**: Image detection uses the actual bytes and system-supported formats rather than requiring an image `Content-Type`. Only the first frame is shown, with a maximum preview edge of 2048 pixels. Copying and exporting in image mode still produces Base64 text.
 - **HAR 1.2**: Export all recorded HTTP requests in a session, including duplicate headers, trailers, connection / stream IDs, and body completeness metadata. The request list display limit does not restrict exports.
-- **cURL ZIP**: Contains a POSIX shell command in `request.sh` and a separate request body file when present. Extract and run from the same directory. Active requests and requests with incomplete bodies cannot be exported as replayable commands.
+- **Request / response ZIP**: The “导出请求/响应” action exports only `request.txt`, `response.txt` (URL, method / status, headers, trailers, and readable body), and `curl.txt`. The complete command embeds the request body without separate files: ordinary UTF-8 text is included directly, while binary or large bodies are embedded as Base64 and decoded into cURL's standard input. Paste the entire `curl.txt` into a POSIX shell (Git Bash on Windows), or run `sh curl.txt`; the response is automatically decompressed and printed to the terminal. Reports flag incomplete or undecodable bodies and preserve undecodable saved bytes as Base64. Active requests and requests with incomplete bodies cannot be exported as replayable commands.
 - **Credentials**: HAR and cURL exports redact `Authorization`, `Proxy-Authorization`, `Cookie`, and `Set-Cookie` values by default. URLs, query parameters, and bodies retain their original data; review them before sharing.
 
 ## Scope and limitations
@@ -127,6 +127,10 @@ APK output: `app/build/outputs/apk/debug/app-debug.apk`. The minimum supported v
 | `core/` | Capture state, domain models, lifecycle, and interfaces between modules. |
 | `capture/` | VPN foreground service, native forwarding with zdtun, Netty HTTP/HTTP2 handling, TLS, and SOCKS5 proxying. |
 | `data/` | Room database, DataStore settings, body file storage, parsing, and HAR / cURL exports. |
+
+The `app` module is organized by feature: `ui.home` hosts the capture list and `MainActivity`; `ui.detail` hosts request details and the separate `RequestDetailActivity`; `ui.history` and `ui.settings` contain history and settings. Shared UI components and themes live in `ui.components` and `ui.theme`, body helpers in `body`, and document selection and export coordination in `export`.
+
+The home activity passes only a request ID through an Intent. A separate detail ViewModel observes that request and loads its connection and bodies. Returning to the home activity preserves the list position and filters; the foreground service continues to own the capture lifecycle.
 
 ## Third-party components
 

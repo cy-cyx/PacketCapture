@@ -6,8 +6,8 @@ import android.graphics.Color
 import androidx.test.platform.app.InstrumentationRegistry
 import com.packetcapture.core.*
 import com.packetcapture.data.FileBodyStore
-import com.packetcapture.ui.BodyImageDecoder
-import com.packetcapture.ui.BodyImageResult
+import com.packetcapture.body.BodyImageDecoder
+import com.packetcapture.body.BodyImageResult
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test

@@ -1,4 +1,4 @@
-package com.packetcapture.ui
+package com.packetcapture.body
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory

@@ -15,18 +15,28 @@ class ExportContentTest {
         override suspend fun read(ref: BodyRef, maxBytes: Int) = byKey[ref.key] ?: bytes
         override suspend fun preview(ref: BodyRef?, headers: List<Header>) = error("not used")
         override suspend fun deleteSession(sessionId: String) {}
+        override suspend fun clearAll() {}
         override suspend fun usedBytes() = 0L
         override suspend fun recoverOrphans(liveSessionIds: Set<String>) {}
     }
-    @Test fun harPreservesRepeatedHeadersRedactsSecretsAndDecodesGzip() = runBlocking {
+    @Test fun harPreservesRepeatedHeadersCredentialsAndDecodesGzip() = runBlocking {
         val raw = ByteArrayOutputStream().also { GZIPOutputStream(it).use { gzip -> gzip.write("compressed-body".toByteArray()) } }.toByteArray()
         val exchange = HttpExchange(sessionId = "s", connectionId = "c", method = "GET", url = "https://example.test/", protocol = "HTTP/2",
-            completion = Completion.COMPLETE, status = 200, requestHeaders = listOf(Header("Authorization", "secret"), Header("X-Multi", "a"), Header("X-Multi", "b")),
+            completion = Completion.COMPLETE, status = 200,
+            requestHeaders = listOf(Header("Authorization", "secret"), Header("Proxy-Authorization", "proxy-secret"),
+                Header("Cookie", "session=private"), Header("X-Multi", "a"), Header("X-Multi", "b")),
             responseHeaders = listOf(Header("Set-Cookie", "private"), Header("Content-Encoding", "gzip")), responseBody = BodyRef("body", raw.size.toLong(), raw.size.toLong()))
         val out = ByteArrayOutputStream(); TrafficExporter(MemoryBodies(raw)).har(listOf(exchange), out)
-        val json = out.toString("UTF-8"); assertFalse(json.contains("secret")); assertFalse(json.contains("private"))
+        val json = out.toString("UTF-8"); assertFalse(json.contains("[REDACTED]"))
         val entry = JsonParser.parseString(json).asJsonObject["log"].asJsonObject["entries"].asJsonArray[0].asJsonObject
-        assertEquals(3, entry["request"].asJsonObject["headers"].asJsonArray.size())
+        val requestHeaders = entry["request"].asJsonObject["headers"].asJsonArray.map {
+            Header(it.asJsonObject["name"].asString, it.asJsonObject["value"].asString)
+        }
+        val responseHeaders = entry["response"].asJsonObject["headers"].asJsonArray.map {
+            Header(it.asJsonObject["name"].asString, it.asJsonObject["value"].asString)
+        }
+        assertEquals(exchange.requestHeaders, requestHeaders)
+        assertEquals(exchange.responseHeaders, responseHeaders)
         assertEquals("compressed-body", String(Base64.getDecoder().decode(entry["response"].asJsonObject["content"].asJsonObject["text"].asString)))
     }
     @Test fun curlRefusesTruncatedBodyAndKeepsBinaryBytes() = runBlocking {
@@ -36,17 +46,20 @@ class ExportContentTest {
         val exporter = TrafficExporter(MemoryBodies(bytes)); val exported = exporter.curl(base)
         val encoded = exported.command.substringAfter('\n').substringBefore("\nPACKET_CAPTURE_BODY")
         assertArrayEquals(bytes, Base64.getMimeDecoder().decode(encoded))
-        assertFalse(exported.command.contains("private")); assertTrue(exported.command.contains("--data-binary '@-'"))
+        assertTrue(exported.command.contains("--header 'Cookie: private'")); assertTrue(exported.command.contains("--data-binary '@-'"))
         assertFalse(exported.command.contains(".bin"))
         try { exporter.curl(base.copy(requestBody = base.requestBody!!.copy(truncated = true))); fail("截断请求不应导出") } catch (_: IllegalArgumentException) { }
     }
-    @Test fun harMarksZeroSavedRequestAndRedactsTrailers() = runBlocking {
+    @Test fun harMarksZeroSavedRequestAndPreservesTrailers() = runBlocking {
         val exchange = HttpExchange(sessionId = "s", connectionId = "c", streamId = 17, method = "POST", url = "https://example.test/",
             protocol = "HTTP/2", completion = Completion.COMPLETE, requestBody = BodyRef("body", 42, 0, true, "queue full"),
+            requestTrailers = listOf(Header("Authorization", "request-trailer-secret")),
             responseTrailers = listOf(Header("Set-Cookie", "trailer-secret"), Header("X-Checksum", "abc")))
         val out = ByteArrayOutputStream(); TrafficExporter(MemoryBodies(byteArrayOf())).har(listOf(exchange), out)
-        val json = out.toString("UTF-8"); assertFalse(json.contains("trailer-secret"))
+        val json = out.toString("UTF-8"); assertFalse(json.contains("[REDACTED]"))
         val entry = JsonParser.parseString(json).asJsonObject["log"].asJsonObject["entries"].asJsonArray[0].asJsonObject
+        assertEquals("request-trailer-secret", entry["request"].asJsonObject["_trailers"].asJsonArray[0].asJsonObject["value"].asString)
+        assertEquals("trailer-secret", entry["response"].asJsonObject["_trailers"].asJsonArray[0].asJsonObject["value"].asString)
         assertTrue(entry["request"].asJsonObject["_body"].asJsonObject["truncated"].asBoolean)
         assertEquals(42, entry["request"].asJsonObject["bodySize"].asInt)
         assertEquals(17, entry["_streamId"].asInt)
@@ -75,14 +88,20 @@ class ExportContentTest {
         assertTrue(bundle.responseText.contains("你好"))
         assertTrue(bundle.responseText.contains("X-Multi: first\nX-Multi: second"))
         assertTrue(bundle.responseText.contains("X-Checksum: abc"))
-        assertFalse((bundle.command + bundle.requestText + bundle.responseText).contains("secret"))
+        assertTrue(bundle.command.contains("--header 'Authorization: request-secret'"))
+        assertTrue(bundle.requestText.contains("Authorization: request-secret"))
+        assertTrue(bundle.requestText.contains("Cookie: request-trailer-secret"))
+        assertTrue(bundle.responseText.contains("Set-Cookie: response-secret"))
+        assertTrue(bundle.responseText.contains("Set-Cookie: response-trailer-secret"))
+        assertFalse((bundle.command + bundle.requestText + bundle.responseText).contains("[REDACTED]"))
         assertTrue(bundle.command.contains("--compressed"))
         assertFalse(bundle.command.contains("--output"))
         assertFalse(bundle.command.contains("--dump-header"))
         assertFalse(bundle.command.contains("Accept-Encoding:"))
-        val unredacted = exporter.curl(exchange, ExportOptions(redactCredentials = false))
-        assertTrue(unredacted.requestText.contains("request-secret"))
-        assertTrue(unredacted.responseText.contains("response-secret"))
+        val redacted = exporter.curl(exchange, ExportOptions(redactCredentials = true))
+        assertFalse((redacted.command + redacted.requestText + redacted.responseText).contains("secret"))
+        assertTrue(redacted.requestText.contains("Authorization: [REDACTED]"))
+        assertTrue(redacted.responseText.contains("Set-Cookie: [REDACTED]"))
     }
     @Test fun curlKeepsPartialBinaryResponseAndExplainsMissingContent() = runBlocking {
         val bytes = byteArrayOf(0, -1, 10)

@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | **English**
 
-**Initial version: v1.0.0** · [Changelog](CHANGELOG.md)
+**Current version: v1.0.1** · [Changelog](CHANGELOG.md)
 
 A local network capture tool for Android, built with Kotlin and Jetpack Compose for API debugging, HTTP/HTTPS inspection, and network troubleshooting.
 
@@ -85,8 +85,9 @@ The proxy must support `UDP ASSOCIATE`. Availability is checked before capture s
 - **Body reading**: Scroll through all saved content. The JSON reading view decodes escape sequences; switch to Raw (`原文`) when you need the original JSON. Copy and body export follow the current text view. Use text export for larger bodies.
 - **Image previews**: Image detection uses the actual bytes and system-supported formats rather than requiring an image `Content-Type`. Only the first frame is shown, with a maximum preview edge of 2048 pixels. Copying and exporting in image mode still produces Base64 text.
 - **HAR 1.2**: Export all recorded HTTP requests in a session, including duplicate headers, trailers, connection / stream IDs, and body completeness metadata. The request list display limit does not restrict exports.
+- **Export filenames**: HAR, request / response ZIP, and body text files use `prefix_app-names_export-timestamp.extension`, for example `capture_Chrome+Firefox_20260928_143025.har`. Session exports name the apps selected for that session; individual requests name their source app. Multiple apps are joined with `+`; unavailable app labels fall back to package names, and an unidentified source is named `未知应用` (unknown app). Timestamps use the device's local time.
 - **Request / response ZIP**: The “导出请求/响应” action exports only `request.txt`, `response.txt` (URL, method / status, headers, trailers, and readable body), and `curl.txt`. The complete command embeds the request body without separate files: ordinary UTF-8 text is included directly, while binary or large bodies are embedded as Base64 and decoded into cURL's standard input. Paste the entire `curl.txt` into a POSIX shell (Git Bash on Windows), or run `sh curl.txt`; the response is automatically decompressed and printed to the terminal. Reports flag incomplete or undecodable bodies and preserve undecodable saved bytes as Base64. Active requests and requests with incomplete bodies cannot be exported as replayable commands.
-- **Credentials**: HAR and cURL exports redact `Authorization`, `Proxy-Authorization`, `Cookie`, and `Set-Cookie` values by default. URLs, query parameters, and bodies retain their original data; review them before sharing.
+- **Credentials**: HAR, cURL, and request / response text exports preserve the original `Authorization`, `Proxy-Authorization`, `Cookie`, and `Set-Cookie` values in request headers, response headers, and trailers. URLs, query parameters, and bodies also retain their original data.
 
 ## Scope and limitations
 

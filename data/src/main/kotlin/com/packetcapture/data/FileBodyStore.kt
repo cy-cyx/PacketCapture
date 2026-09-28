@@ -120,6 +120,17 @@ class FileBodyStore(context: Context) : BodyStore {
         Unit
     }
     override suspend fun usedBytes(): Long = withContext(Dispatchers.IO) { reserved.get().coerceAtLeast(0) + databaseBytes() }
+    override suspend fun clearAll() = withContext(Dispatchers.IO) {
+        try {
+            val files = root.listFiles() ?: throw IOException("无法读取正文存储目录")
+            files.forEach { check(it.deleteRecursively()) { "正文清理失败，请重试" } }
+        } finally {
+            // 部分文件删除失败时也按实际占用更新，避免显示已释放的额度。
+            reserved.set(root.walkTopDown().filter { it.isFile }.sumOf { it.length() })
+            dbBytes.set(databaseBytes())
+            freeBytes.set(root.usableSpace)
+        }
+    }
     override suspend fun recoverOrphans(liveSessionIds: Set<String>) = withContext(Dispatchers.IO) {
         root.listFiles()?.filter { it.isDirectory && it.name !in liveSessionIds }?.forEach { it.deleteRecursively() }
         root.walkTopDown().filter { it.isFile && it.name.endsWith(".part") }.forEach { file ->

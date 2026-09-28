@@ -28,6 +28,7 @@ class TrafficRecorderTest {
             }
             override suspend fun saveExchange(value: HttpExchange) { exchange = value }
             override suspend fun deleteSession(id: String) {}
+            override suspend fun clearStorage() {}
             override suspend fun recoverInterrupted() {}
         }
         val bodies = object : BodyStore {
@@ -38,6 +39,7 @@ class TrafficRecorderTest {
             override suspend fun read(ref: BodyRef, maxBytes: Int) = byteArrayOf()
             override suspend fun preview(ref: BodyRef?, headers: List<Header>) = BodyPreview("", false, false)
             override suspend fun deleteSession(sessionId: String) {}
+            override suspend fun clearAll() {}
             override suspend fun usedBytes() = 0L
             override suspend fun recoverOrphans(liveSessionIds: Set<String>) {}
         }

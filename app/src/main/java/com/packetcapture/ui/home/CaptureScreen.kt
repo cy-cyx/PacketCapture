@@ -41,7 +41,7 @@ import java.net.URI
                     if (running) FilledTonalButton(onClick = actions.stop, enabled = state.capture.phase != CapturePhase.STOPPING,
                         colors = ButtonDefaults.filledTonalButtonColors(containerColor = Color(0xFFFFE6E8), contentColor = Color(0xFFCD233D))) {
                         Icon(Icons.Outlined.Stop, null, Modifier.size(16.dp)); Text("停止")
-                    } else Button(onClick = actions.start, enabled = state.ready && state.settings.capture.packages.isNotEmpty()) { Text("开始抓包") }
+                    } else Button(onClick = actions.start, enabled = state.ready && !state.clearingStorage && state.settings.capture.packages.isNotEmpty()) { Text("开始抓包") }
                 }
                 HorizontalDivider(Modifier.padding(vertical = 10.dp))
                 Row(Modifier.fillMaxWidth().clickable(onClick = apps).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {

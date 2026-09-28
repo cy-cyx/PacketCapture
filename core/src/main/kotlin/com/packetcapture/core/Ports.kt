@@ -12,6 +12,8 @@ interface CaptureController {
     val state: StateFlow<CaptureState>
     fun start(config: CaptureConfig)
     fun stop()
+    /** 仅停止抓包后允许清空；实现须与采集启动、停止串行执行。 */
+    suspend fun clearStorage()
 }
 
 /** 持久化边界：实现必须在 IO 线程执行磁盘操作；列表只返回指定窗口，正文不进入列表。 */
@@ -27,6 +29,8 @@ interface CaptureRepository {
     suspend fun saveConnection(connection: ConnectionRecord)
     suspend fun saveExchange(exchange: HttpExchange)
     suspend fun deleteSession(id: String)
+    /** 删除全部抓包记录和正文，回收数据库空间；调用方须保证采集已停止。 */
+    suspend fun clearStorage()
     suspend fun recoverInterrupted()
 }
 
@@ -44,6 +48,8 @@ interface BodyStore {
     suspend fun read(ref: BodyRef, maxBytes: Int = DEFAULT_BODY_LIMIT.toInt()): ByteArray
     suspend fun preview(ref: BodyRef?, headers: List<Header>): BodyPreview
     suspend fun deleteSession(sessionId: String)
+    /** 清空全部正文及未提交文件并重置配额；只能在采集停止后调用。 */
+    suspend fun clearAll()
     suspend fun usedBytes(): Long
     /** 启动恢复时清理未提交文件和已删除会话目录；只能在采集启动前调用。 */
     suspend fun recoverOrphans(liveSessionIds: Set<String>)

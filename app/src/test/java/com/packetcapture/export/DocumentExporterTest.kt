@@ -21,21 +21,29 @@ class DocumentExporterTest {
         }.toByteArray()
         val exchange = HttpExchange(id = "export-fixture", sessionId = "s", connectionId = "c", method = "POST",
             url = "https://example.test/export", protocol = "HTTP/2", status = 200, completion = Completion.COMPLETE,
-            requestHeaders = listOf(Header("Content-Type", "application/json"), Header("Cookie", "private-request")),
+            requestHeaders = listOf(Header("Content-Type", "application/json"), Header("Cookie", "private-request"),
+                Header("Authorization", "Bearer request-token"), Header("Proxy-Authorization", "Basic proxy-token")),
             responseHeaders = listOf(Header("Content-Type", "application/json"), Header("Content-Encoding", "gzip"), Header("Set-Cookie", "private-response")),
             requestBody = BodyRef("request", request.size.toLong(), request.size.toLong()),
             responseBody = BodyRef("response", response.size.toLong(), response.size.toLong()))
         val output = export(exchange, mapOf("request" to request, "response" to response))
         val entries = unzip(output)
         assertEquals(setOf("request.txt", "response.txt", "curl.txt"), entries.keys)
-        assertTrue(entries.getValue("request.txt").toString(Charsets.UTF_8).contains("你好"))
+        val requestText = entries.getValue("request.txt").toString(Charsets.UTF_8)
+        assertTrue(requestText.contains("你好"))
+        assertTrue(requestText.contains("Cookie: private-request"))
+        assertTrue(requestText.contains("Authorization: Bearer request-token"))
+        assertTrue(requestText.contains("Proxy-Authorization: Basic proxy-token"))
         val responseText = entries.getValue("response.txt").toString(Charsets.UTF_8)
         assertTrue(responseText.contains("HTTP/2 200"))
         assertTrue(responseText.contains("captured response"))
         val allText = entries.values.joinToString { it.toString(Charsets.UTF_8) }
-        assertFalse(allText.contains("private-request"))
-        assertFalse(allText.contains("private-response"))
+        assertTrue(responseText.contains("Set-Cookie: private-response"))
+        assertFalse(allText.contains("[REDACTED]"))
         val script = entries.getValue("curl.txt").toString(Charsets.UTF_8)
+        assertTrue(script.contains("--header 'Cookie: private-request'"))
+        assertTrue(script.contains("--header 'Authorization: Bearer request-token'"))
+        assertTrue(script.contains("--header 'Proxy-Authorization: Basic proxy-token'"))
         assertTrue(script.contains("--compressed"))
         assertTrue(script.contains("--data-raw " + TrafficExporter.quote(request.toString(Charsets.UTF_8))))
         assertFalse(script.contains(".bin"))
@@ -82,6 +90,7 @@ class DocumentExporterTest {
             override suspend fun read(ref: BodyRef, maxBytes: Int) = content.getValue(ref.key)
             override suspend fun preview(ref: BodyRef?, headers: List<Header>): BodyPreview = error("not used")
             override suspend fun deleteSession(sessionId: String) {}
+            override suspend fun clearAll() {}
             override suspend fun usedBytes() = 0L
             override suspend fun recoverOrphans(liveSessionIds: Set<String>) {}
         }
@@ -101,6 +110,7 @@ class DocumentExporterTest {
             override suspend fun saveConnection(connection: ConnectionRecord) {}
             override suspend fun saveExchange(exchange: HttpExchange) {}
             override suspend fun deleteSession(id: String) {}
+            override suspend fun clearStorage() {}
             override suspend fun recoverInterrupted() {}
         }
         var closed = false

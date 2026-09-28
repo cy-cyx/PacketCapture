@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.packetcapture.BuildConfig
 import com.packetcapture.core.*
 import com.packetcapture.ui.components.*
 
@@ -29,8 +30,12 @@ import com.packetcapture.ui.components.*
     apps: () -> Unit,
     bypass: () -> Unit,
     guide: () -> Unit,
+    clearStorage: () -> Unit,
+    canClearStorage: Boolean,
+    clearingStorage: Boolean,
 ) {
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    var confirmClearStorage by rememberSaveable { mutableStateOf(false) }
+    LazyColumn(Modifier.fillMaxSize().testTag("settings-list"), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item { Panel {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.WorkspacePremium, null, Modifier.size(44.dp), tint = MaterialTheme.colorScheme.primary)
@@ -61,16 +66,35 @@ import com.packetcapture.ui.components.*
             HorizontalDivider(); SettingRow(Icons.Outlined.PieChart, "已用空间", bytes(usedBytes))
             LinearProgressIndicator(progress = { (usedBytes.toFloat() / DEFAULT_STORAGE_LIMIT).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(8.dp)); Muted("达到限额后保留已保存的正文前缀，网络转发继续。")
+            HorizontalDivider(Modifier.padding(vertical = 12.dp))
+            OutlinedButton(onClick = { confirmClearStorage = true }, enabled = canClearStorage && !clearingStorage,
+                modifier = Modifier.fillMaxWidth().testTag("clear-storage"),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                Icon(Icons.Outlined.DeleteSweep, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(if (clearingStorage) "正在清空…" else "清空所有存储")
+            }
+            Muted("清空前请先停止抓包。应用设置和 HTTPS 证书会保留。")
         } }
         item { Muted("通用"); Spacer(Modifier.height(8.dp)); Panel {
             SettingRow(Icons.Outlined.Palette, "外观", when (settings.theme) { ThemeMode.SYSTEM -> "跟随系统"; ThemeMode.LIGHT -> "浅色"; ThemeMode.DARK -> "深色" }) {
                 val next = ThemeMode.entries[(settings.theme.ordinal + 1) % ThemeMode.entries.size]
                 save(settings.copy(theme = next))
             }
-            HorizontalDivider(); SettingRow(Icons.Outlined.Info, "本地抓包 Demo", "v1.0.0")
-            Muted("所有运行组件位于手机内 · 导出默认隐藏敏感请求头")
+            HorizontalDivider(); SettingRow(Icons.Outlined.Info, "本地抓包 Demo", "v${BuildConfig.VERSION_NAME}")
+            Muted("所有运行组件位于手机内 · 导出保留请求头和响应头原值")
         } }
     }
+    if (confirmClearStorage) AlertDialog(
+        onDismissRequest = { confirmClearStorage = false },
+        title = { Text("清空所有存储？") },
+        text = { Text("将删除全部抓包会话、请求、连接记录和正文文件，无法恢复。\n\n应用设置、HTTPS 证书及已导出的文件会保留。") },
+        confirmButton = {
+            TextButton(onClick = { confirmClearStorage = false; clearStorage() }, enabled = canClearStorage && !clearingStorage,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("确认清空") }
+        },
+        dismissButton = { TextButton(onClick = { confirmClearStorage = false }) { Text("取消") } },
+    )
 }
 
 @Composable internal fun ProxySettings(proxy: UpstreamProxy, save: (UpstreamProxy) -> Unit) {

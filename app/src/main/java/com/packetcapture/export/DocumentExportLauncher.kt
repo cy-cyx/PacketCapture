@@ -11,10 +11,11 @@ import kotlinx.coroutines.withContext
 
 /** 每个 Activity 各自注册文档选择器，并保存待导出参数以支持系统重建。 */
 class DocumentExportLauncher(
-    owner: ComponentActivity,
-    exporter: DocumentExporter,
+    private val owner: ComponentActivity,
+    private val exporter: DocumentExporter,
     private val message: (String) -> Unit,
 ) {
+    private var preparingExport = false
     private var pendingExport = owner.savedStateRegistry.consumeRestoredStateForKey(STATE_KEY)?.let { state ->
         state.getString("kind")?.let { kind ->
             ExportRequest(kind, state.getString("id"), state.getBoolean("rawBody"), state.getBoolean("decodeBase64"))
@@ -29,7 +30,7 @@ class DocumentExportLauncher(
                     val stream = owner.contentResolver.openOutputStream(uri, "wt") ?: error("无法打开目标文件")
                     stream.use { exporter.write(request, it) }
                 }
-                message(if (request.kind.endsWith("-body")) "正文已导出" else "导出完成（敏感请求头默认隐藏）")
+                message(if (request.kind.endsWith("-body")) "正文已导出" else "导出完成")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -52,19 +53,27 @@ class DocumentExportLauncher(
     }
 
     fun launch(request: ExportRequest) {
-        if (pendingExport != null) return
-        pendingExport = request
-        try {
-            document.launch(when (request.kind) {
-                "certificate" -> "packet-capture-ca.cer"
-                "curl" -> "request-response.zip"
-                "request-body" -> "request-body.txt"
-                "response-body" -> "response-body.txt"
-                else -> "capture.har"
-            })
-        } catch (e: Exception) {
-            pendingExport = null
-            message("导出失败: ${e.message}")
+        if (pendingExport != null || preparingExport) return
+        preparingExport = true
+        owner.lifecycleScope.launch {
+            try {
+                val fileName = exporter.fileName(request) { packageName ->
+                    runCatching {
+                        val manager = owner.packageManager
+                        manager.getApplicationLabel(manager.getApplicationInfo(packageName, 0)).toString()
+                    }.getOrDefault(packageName)
+                }
+                pendingExport = request
+                document.launch(fileName)
+            } catch (e: CancellationException) {
+                pendingExport = null
+                throw e
+            } catch (e: Exception) {
+                pendingExport = null
+                message("导出失败: ${e.message}")
+            } finally {
+                preparingExport = false
+            }
         }
     }
 

@@ -12,6 +12,7 @@ data class CaptureUiState(
     val sessions: List<CaptureSession> = emptyList(), val filter: ExchangeFilter = ExchangeFilter(),
     val selectedSession: String? = null, val apps: List<InstalledApp> = emptyList(),
     val certificate: CertificateInfo? = null, val usedBytes: Long = 0,
+    val clearingStorage: Boolean = false,
     val message: String? = null,
 )
 /** 首页状态协调器。只依赖 core 接口，负责抓包、列表、历史和设置，不加载请求详情。 */
@@ -52,7 +53,7 @@ class CaptureViewModel(
         catch (e: Exception) { message(e.message ?: "操作失败") }
     }
     fun message(text: String?) { mutable.update { it.copy(message = text) } }
-    fun start() { if (state.value.ready) { selectSession(null); controller.start(state.value.settings.capture) } }
+    fun start() { if (state.value.ready && !state.value.clearingStorage) { selectSession(null); controller.start(state.value.settings.capture) } }
     fun stop() = controller.stop()
     fun selectSession(id: String?) { selection.value = id; mutable.update { it.copy(selectedSession = id) } }
     fun setFilter(value: ExchangeFilter) { filter.value = value; mutable.update { it.copy(filter = value) } }
@@ -60,6 +61,24 @@ class CaptureViewModel(
     fun saveSettings(settings: AppSettings) = action { preferences.update(settings) }
     fun refreshStorage() = action { mutable.update { it.copy(usedBytes = bodies.usedBytes()) } }
     fun certificate() = action { val info = certificates.ensureCertificate(); mutable.update { it.copy(certificate = info) } }
+    fun clearStorage() {
+        if (!state.value.ready || state.value.clearingStorage) return
+        if (controller.state.value.phase !in setOf(CapturePhase.IDLE, CapturePhase.FAILED)) {
+            message("请先停止抓包后再清空存储")
+            return
+        }
+        mutable.update { it.copy(clearingStorage = true) }
+        action {
+            try {
+                controller.clearStorage()
+                selectSession(null)
+                message("已清空所有抓包存储")
+            } finally {
+                refreshStorage()
+                mutable.update { it.copy(clearingStorage = false) }
+            }
+        }
+    }
     fun delete(id: String) = action {
         repository.deleteSession(id)
         if (selection.value == id) selectSession(null)

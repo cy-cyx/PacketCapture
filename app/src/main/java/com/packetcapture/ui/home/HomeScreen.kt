@@ -5,7 +5,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ShowChart
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -25,6 +24,7 @@ data class CaptureActions(
     val settings: (AppSettings) -> Unit, val selectSession: (String?) -> Unit,
     val detail: (String) -> Unit, val delete: (String) -> Unit, val historySearch: (String) -> Unit,
     val certificate: () -> Unit, val export: (ExportRequest) -> Unit, val refreshStorage: () -> Unit,
+    val clearStorage: () -> Unit,
     val clearMessage: () -> Unit,
 )
 
@@ -38,10 +38,7 @@ data class CaptureActions(
     LaunchedEffect(state.message) { state.message?.let { snackbar.showSnackbar(it); actions.clearMessage() } }
     LaunchedEffect(page) { if (page == 2) { actions.refreshStorage(); actions.certificate() } }
     Scaffold(snackbarHost = { SnackbarHost(snackbar) }, topBar = {
-        TopAppBar(title = { Text(listOf("抓包", "历史记录", "设置")[page], fontWeight = FontWeight.Bold) },
-            actions = {
-                if (page == 0) IconButton(onClick = { page = 2 }) { Icon(Icons.Outlined.Tune, "抓包设置") }
-            })
+        TopAppBar(title = { Text(listOf("抓包", "历史记录", "设置")[page], fontWeight = FontWeight.Bold) })
     }, bottomBar = {
         NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
             listOf("抓包" to Icons.AutoMirrored.Outlined.ShowChart, "历史" to Icons.Outlined.History, "设置" to Icons.Outlined.Settings).forEachIndexed { index, item ->
@@ -57,7 +54,9 @@ data class CaptureActions(
                     { id -> actions.export(ExportRequest("har", id)) })
                 2 -> SettingsScreen(state.settings, state.certificate, state.usedBytes, actions.settings,
                     { actions.certificate(); actions.export(ExportRequest("certificate")) },
-                    { appPicker = true }, { bypass = true }, { guide = true })
+                    { appPicker = true }, { bypass = true }, { guide = true }, actions.clearStorage,
+                    canClearStorage = state.ready && !state.clearingStorage && state.capture.phase in setOf(CapturePhase.IDLE, CapturePhase.FAILED),
+                    clearingStorage = state.clearingStorage)
             }
             if (!state.ready) LinearProgressIndicator(Modifier.fillMaxWidth())
         }

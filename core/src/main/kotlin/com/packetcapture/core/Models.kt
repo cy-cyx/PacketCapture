@@ -109,7 +109,7 @@ data class InstalledApp(val packageName: String, val label: String)
 /** text 用于默认阅读视图；rawText 保留解压后的原始文本，供核对转义和原始 JSON 语法。 */
 data class BodyPreview(val text: String, val binary: Boolean, val limited: Boolean, val note: String? = null,
     val rawText: String? = null)
-data class ExportOptions(val redactCredentials: Boolean = true)
+data class ExportOptions(val redactCredentials: Boolean = false)
 data class CurlExport(
     val command: String,
     val requestText: String = "",

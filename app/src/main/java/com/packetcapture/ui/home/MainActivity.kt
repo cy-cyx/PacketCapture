@@ -51,7 +51,7 @@ class MainActivity : ComponentActivity() {
                     detail = { id -> startActivity(RequestDetailActivity.createIntent(this, id)) }, delete = { model.delete(it) },
                     historySearch = model::searchHistory, certificate = { model.certificate() },
                     export = documents::launch,
-                    refreshStorage = { model.refreshStorage() }, clearMessage = { model.message(null) },
+                    refreshStorage = { model.refreshStorage() }, clearStorage = model::clearStorage, clearMessage = { model.message(null) },
                 ))
             }
         }

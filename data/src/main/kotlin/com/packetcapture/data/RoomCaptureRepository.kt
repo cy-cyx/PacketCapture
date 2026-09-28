@@ -7,6 +7,7 @@ import com.google.gson.Gson
 import com.packetcapture.core.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.withContext
 
 class RoomCaptureRepository(context: Context, private val bodies: BodyStore) : CaptureRepository {
     private val db = Room.databaseBuilder(context.applicationContext, CaptureDatabase::class.java, "capture.db").build()
@@ -32,6 +33,16 @@ class RoomCaptureRepository(context: Context, private val bodies: BodyStore) : C
         // 数据库先提交删除；文件清理可在下次启动重试，避免记录引用已被删除的正文。
         db.withTransaction { dao.deleteExchanges(id); dao.deleteConnections(id); dao.deleteSession(id) }
         bodies.deleteSession(id)
+    }
+    override suspend fun clearStorage() = withContext(Dispatchers.IO) {
+        require(dao.allSessions().none { json.fromJson(it.payload, CaptureSession::class.java).completion == Completion.ACTIVE }) {
+            "请先停止抓包后再清空存储"
+        }
+        // 先删除全部表记录并压缩数据库，再清理正文；不受历史列表的搜索和 100 条上限影响。
+        db.clearAllTables()
+        db.openHelper.writableDatabase.query("PRAGMA wal_checkpoint(TRUNCATE)").use { it.moveToFirst() }
+        bodies.clearAll()
+        Unit
     }
     override suspend fun recoverInterrupted() {
         val now = System.currentTimeMillis()

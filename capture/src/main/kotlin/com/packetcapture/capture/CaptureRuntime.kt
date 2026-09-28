@@ -73,6 +73,14 @@ class CaptureRuntime(
         catch (e: Exception) { phase(CapturePhase.FAILED, "无法启动抓包服务: ${e.message}") }
     }
     override fun stop() = stopWithReason(null)
+    override suspend fun clearStorage() = withContext(NonCancellable) {
+        mutex.withLock {
+            check(state.value.phase in setOf(CapturePhase.IDLE, CapturePhase.FAILED)) { "请先停止抓包后再清空存储" }
+            repository.clearStorage()
+            mutableState.update { it.copy(sessionId = null, startedAt = null, uploadedBytes = 0,
+                downloadedBytes = 0, recordingWarning = null) }
+        }
+    }
     internal fun stopWithReason(reason: String?) {
         stopping.set(true)
         scope.launch { mutex.withLock { cleanup(reason, true) } }

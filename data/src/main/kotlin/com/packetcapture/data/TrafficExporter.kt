@@ -26,7 +26,7 @@ class TrafficExporter(private val bodies: BodyStore) : ExportService {
         // 逐条写 JSON；不把整个会话的所有响应体及 Base64 同时装入内存。
         val writer = JsonWriter(OutputStreamWriter(output, Charsets.UTF_8))
         writer.beginObject().name("log").beginObject().name("version").value("1.2")
-            .name("creator").beginObject().name("name").value("Packet Capture").name("version").value("1.0.0").endObject()
+            .name("creator").beginObject().name("name").value("Packet Capture").name("version").value("1.0.1").endObject()
             .name("entries").beginArray()
         for (exchange in exchanges) {
             val reqBody = exchange.requestBody
